@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "context-repo-local",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [{ "binding": "DB", "database_name": "context-repo", "database_id": "f47f02ee-8c2b-408a-bece-56082bb32943", "migrations_dir": "migrations" }],
+  "observability": { "enabled": false },
+  "env": {
+    "preview": {
+      "name": "context-repo-preview",
+      "workers_dev": true,
+      "vars": { "ENVIRONMENT": "preview" },
+      "d1_databases": [{ "binding": "DB", "database_name": "context-repo-preview", "database_id": "3e21db81-fbb6-4adb-807a-2c7965525983", "migrations_dir": "migrations" }]
+    }
+  }
+}

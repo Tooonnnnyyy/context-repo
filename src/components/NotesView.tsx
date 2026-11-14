@@ -1,0 +1,13 @@
+import { useState } from 'react'
+import { Search, Plus, LockKeyhole, FileText, ArrowUpRight, FolderOpen } from 'lucide-react'
+import { Button, EmptyState } from './ui'
+import type { Note } from '../types'
+
+export function NotesView({ notes, onSelect, onNew, onImport, search: initialSearch = '' }: { notes: Note[]; onSelect: (id: string) => void; onNew: () => void; onImport: () => void; search?: string }) {
+  const [query, setQuery] = useState(initialSearch), [tag, setTag] = useState('All notes')
+  const tags = [...new Set(notes.flatMap(n => n.tags))].sort()
+  const filtered = notes.filter(n => (tag === 'All notes' || n.tags.includes(tag)) && `${n.title} ${n.body} ${n.tags.join(' ')}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+  return <><div className="page-heading"><div><h1>Room for every thought.</h1><p>Browse your notes, follow a thread, or start something new.</p></div><div className="button-row"><Button variant="secondary" onClick={onImport}><FolderOpen size={16} />Import</Button><Button onClick={onNew}><Plus size={16} />New note</Button></div></div><div className="notes-controls"><label className="search-input"><Search size={16} /><input type="search" placeholder="Search your notes…" aria-label="Search notes" value={query} onChange={e => setQuery(e.target.value)} /></label><select className="text-input" aria-label="Filter by topic" value={tag} onChange={e => setTag(e.target.value)}><option>All notes</option>{tags.map(t => <option key={t}>{t}</option>)}</select><span>{filtered.length} notes</span></div>
+    {filtered.length ? <div className="notes-table"><div className="notes-table-heading"><span>NOTE</span><span>TOPICS</span><span>VISIBILITY</span><span /></div>{filtered.map(note => <button key={note.id} className="note-row" onClick={() => onSelect(note.id)}><span className="note-row-title"><FileText size={17} /><span><strong>{note.title}</strong><small>{note.summary}</small></span></span><span className="tag-row">{note.tags.slice(0, 2).map(t => <span key={t}>{t}</span>)}</span><span className="visibility-label"><LockKeyhole size={13} />{note.visibility === 'private' ? 'Private' : 'Selected'}</span><ArrowUpRight size={16} /></button>)}</div> : <EmptyState icon={<FileText size={30} />} title={notes.length ? 'No matching notes.' : 'Every connection starts somewhere.'} action={<Button onClick={notes.length ? () => { setTag('All notes'); setQuery('') } : onNew}>{notes.length ? 'Clear filters' : 'Write your first note'}<Plus size={15} /></Button>}>{notes.length ? 'Try another word or topic.' : 'Bring a vault, or write a thought you want to come back to.'}</EmptyState>}
+  </>
+}
