@@ -20,3 +20,9 @@ Context helps anyone turn their own notes into a connected personal context base
 ## Record decisions here
 
 Keep product decisions and why they matter. Put session state in `HANDOFF.md`, delivered changes in `CHANGELOG.md`, future work in `docs/ROADMAP.md`, and dated execution evidence in `docs/WORKLOG.md`.
+
+## Handoff operating decision — 2026-11-14
+
+- The owner's word `handoff` is a durable stop-point request: consolidate the current evidence into `HANDOFF.md`, `CHANGELOG.md`, `docs/WORKLOG.md` and a private cross-repository handoff artifact when needed.
+- A handoff must include confirmed branch/commit/worktree state, completed behavior, exact validation commands and results, preview/deployment boundary, blockers, next executable commands and rollback point.
+- A handoff is not a transcript and must not contain credentials, private note bodies, personal filesystem paths, raw usage records or imported user data. Separate repository facts from proposals and unverified claims.
