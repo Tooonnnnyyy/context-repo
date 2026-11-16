@@ -10,6 +10,8 @@ export type ShareOptions = { privateLabel?: string }
 export type SharedNote = { title: string; body: string; summary: string; tags: string[] }
 
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i
+// Links into the private vault or file system, even though they carry a URL scheme.
+const VAULT_URI = /^(?:obsidian|file):/i
 const noteName = (target: string) => linkName(target).split('/').at(-1) || target
 
 /**
@@ -20,23 +22,23 @@ const noteName = (target: string) => linkName(target).split('/').at(-1) || targe
  * - `[[Target]]`, `[[Target#Heading]]` and `[text](Target.md)` keep their visible text (the
  *   label, or the target's note name without folders or heading) when the target is shared,
  *   and become `privateLabel` otherwise. A Markdown link label is often the target's title,
- *   so it is not kept for an unshared target.
+ *   so it is not kept for an unshared target. `obsidian:` and `file:` links become `privateLabel`.
  * Web links and images with a URL scheme are the author's own content and stay as written.
  */
 export function redactLinks(markdown: string, isShared: (target: string) => boolean, privateLabel = PRIVATE_NOTE_LABEL): string {
   return markdown
-    .replace(/(!?)\[\[([^\[\]\n]+)\]\]/g, (_match, embed: string, inner: string) => {
+    .replace(/(!?)\[\[([^[\]|\n]*)(?:\|((?:[^\]\n]|\](?!\]))*))?\]\]/g, (_match, embed: string, written: string, aliasText?: string) => {
       if (embed) return ''
-      const bar = inner.indexOf('|')
-      const alias = bar < 0 ? '' : inner.slice(bar + 1).trim()
+      const alias = aliasText?.trim()
       if (alias) return alias
-      const target = (bar < 0 ? inner : inner.slice(0, bar)).replace(/\\$/, '').trim()
+      const target = written.replace(/\\$/, '').trim()
       // [[#Heading]] points inside the shared note itself.
       if (!linkName(target).trim()) return target.slice(target.indexOf('#') + 1).trim() || privateLabel
       return isShared(target) ? noteName(target) : privateLabel
     })
-    .replace(/(!?)\[([^\]\n]*)\]\(\s*(<[^>\n]*>|[^)\s]*)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g, (match, embed: string, text: string, written: string) => {
+    .replace(/(!?)\[((?:[^[\]\n]|\[[^[\]\n]*\])*)\]\(\s*(<[^>\n]*>|(?:[^()\s]|\([^()\s]*\))*)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g, (match, embed: string, text: string, written: string) => {
       const destination = written.replace(/^<([\s\S]*)>$/, '$1')
+      if (VAULT_URI.test(destination)) return embed ? '' : privateLabel
       if (!destination || EXTERNAL.test(destination)) return match
       if (embed) return ''
       let path = destination.split(/[?#]/)[0]

@@ -45,6 +45,12 @@ test('local Markdown links and images follow the same rules; web links stay as w
   assert.equal(publicProjection([note, swap, secret]).notes[0].body, '[private note], swap, [site](https://example.org/a.md), , ![logo](https://example.org/logo.png), [top](#top)')
 })
 
+test('unusual link syntax cannot carry a private name out', () => {
+  const note = selected(parseNote('A [[Budget worries|odd] alias]], [[Budget worries|odd [alias]], [a [nested] label](../Private/Budget%20worries.md), [paren](Budget%20worries%20(old).md), [vault](obsidian://open?vault=Home&file=Budget%20worries), [disk](file:///notes/Budget%20worries.md), [[Budget worries\\|table alias]], [[]].', 'Plans/Odd.md'))
+  const body = publicProjection([note, secret]).notes[0].body
+  assert.equal(body, 'A odd] alias, odd [alias, [private note], [private note], [private note], [private note], table alias, [private note].')
+})
+
 test('wikilinks inside code are redacted as well', () => {
   const note = selected(parseNote('```\n[[Budget worries]]\n```', 'Plans/Code.md'))
   assert.ok(!JSON.stringify(publicProjection([note, secret])).includes('Budget worries'))
