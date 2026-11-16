@@ -51,6 +51,32 @@ test('unusual link syntax cannot carry a private name out', () => {
   assert.equal(body, 'A odd] alias, odd [alias, [private note], [private note], [private note], [private note], table alias, [private note].')
 })
 
+test('nested, escaped, reference, HTML and bare links cannot carry a private name out', () => {
+  const text = [
+    'Nested: [[Seed swap|[[Budget worries]]]], [[Seed swap|![[Budget worries]]]], [[Budget worries|[[Budget worries]]]], [[Budget worries|![[Budget worries]]]], [[a|[x](../Private/Budget%20worries.md)]].',
+    'Escaped: [x](../Private/Budget\\(worries\\).md), [y](a(b(c))/../../Private/Budget%20worries.md), [z](<../Private/Budget worries.md> "title"), [w](../Private/Budget%20worries.md \'t\').',
+    'Other files: [doc](../Private/Budget%20worries.pdf), ![scan](../Private/scan.png).',
+    'Reference: [the budget][b], [b][], [b].',
+    '',
+    '[b]: ../Private/Budget%20worries.md "Budget worries"',
+    '',
+    'Autolinks: <obsidian://open?vault=Home&file=Budget%20worries>, obsidian://open?vault=Home&file=Budget%20worries, obsidian:open?file=Budget, file:///notes/Private/Budget%20worries.md, bear://x-callback-url/open-note?title=Budget%20worries, [p](//example.org/Budget).',
+    'HTML: <a href="../Private/Budget%20worries.md">Budget worries</a> <img src="../Private/Budget worries.png"> <a href=\'obsidian://open?file=Budget\'>x</a>.',
+    'Prose path: Private/Budget worries.md and Private/Budget%20worries and Private/Budget worries.',
+  ].join('\n')
+  const note = selected(parseNote(text, 'Plans/Tricky.md'))
+  const body = publicProjection([note, swap, secret]).notes[0].body
+  assert.ok(!body.includes('Budget') && !body.includes('Private/') && !body.includes('scan') && !body.includes('obsidian') && !body.includes('file:') && !body.includes('bear:'), body)
+  assert.ok(!body.includes('[[') && !body.includes(']]'), body)
+  assert.ok(body.startsWith('Nested: [private note], Seed swap, [private note], [private note], [private note].'), body)
+})
+
+test('web, mail and anchor links stay as written; shared links keep their text', () => {
+  const note = selected(parseNote('[site](https://example.org/a_(b)) <https://example.org/x> https://example.org/y [mail](mailto:hi@example.org) [top](#top) <a href="https://example.org/z">z</a> [s](<Seed swap.md>) [t][s]\n\n[s]: Seed%20swap.md', 'Plans/Web.md'))
+  const body = publicProjection([note, swap]).notes[0].body
+  assert.equal(body, '[site](https://example.org/a_(b)) <https://example.org/x> https://example.org/y [mail](mailto:hi@example.org) [top](#top) <a href="https://example.org/z">z</a> s t\n\n')
+})
+
 test('wikilinks inside code are redacted as well', () => {
   const note = selected(parseNote('```\n[[Budget worries]]\n```', 'Plans/Code.md'))
   assert.ok(!JSON.stringify(publicProjection([note, secret])).includes('Budget worries'))

@@ -9,43 +9,207 @@ export type ShareOptions = { privateLabel?: string }
 /** One note as it may leave the workspace. */
 export type SharedNote = { title: string; body: string; summary: string; tags: string[] }
 
-const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i
-// Links into the private vault or file system, even though they carry a URL scheme.
-const VAULT_URI = /^(?:obsidian|file):/i
 const noteName = (target: string) => linkName(target).split('/').at(-1) || target
+
+// Only web and mail links count as the author's own outside content. Every other destination
+// (obsidian:, file:, app schemes, protocol-relative, paths) is treated as private unless it
+// resolves to a shared note: an allowlist, so an unknown scheme fails closed.
+const WEB = /^(?:https?:|mailto:)/i
+const ANY_SCHEME = /^[a-z][a-z0-9+.-]*:/i
+type Destination = { kind: 'web' | 'anchor' | 'blocked' | 'local'; path: string }
+
+function destinationOf(written: string): Destination {
+  const raw = written.trim().replace(/^<([\s\S]*)>$/, '$1').trim()
+  if (!raw || raw.startsWith('#')) return { kind: 'anchor', path: '' }
+  if (WEB.test(raw)) return { kind: 'web', path: '' }
+  if (ANY_SCHEME.test(raw) || raw.startsWith('//')) return { kind: 'blocked', path: '' }
+  let path = raw.split(/[?#]/)[0].replace(/\\(.)/g, '$1')
+  try { path = decodeURIComponent(path) } catch { /* Keep the path as written. */ }
+  return { kind: 'local', path }
+}
+
+/** Calls `render` for every `[[...]]` and `![[...]]`, matching nested brackets on one line. */
+function replaceWikilinks(text: string, render: (inner: string, embed: boolean) => string): string {
+  let out = ''
+  let at = 0
+  while (at < text.length) {
+    const start = text.indexOf('[[', at)
+    if (start < 0) { out += text.slice(at); break }
+    let depth = 0, end = -1
+    for (let i = start; i < text.length && text[i] !== '\n';) {
+      if (text.startsWith('[[', i)) { depth++; i += 2; continue }
+      if (text.startsWith(']]', i)) { depth--; i += 2; if (depth === 0) { end = i; break } continue }
+      i++
+    }
+    const embed = start > at && text[start - 1] === '!'
+    if (end < 0) {
+      // An unclosed `[[` is not a link; keep the text and drop the brackets.
+      out += text.slice(at, start)
+      at = start + 2
+      continue
+    }
+    out += text.slice(at, embed ? start - 1 : start) + render(text.slice(start + 2, end - 2), embed)
+    at = end
+  }
+  return out
+}
+
+/** The first `|` outside nested `[[...]]`, or -1. */
+function aliasPipe(inner: string): number {
+  let depth = 0
+  for (let i = 0; i < inner.length; i++) {
+    if (inner.startsWith('[[', i)) { depth++; i++; continue }
+    if (inner.startsWith(']]', i)) { depth--; i++; continue }
+    if (inner[i] === '|' && depth <= 0) return i
+  }
+  return -1
+}
+
+type InlineLink = { end: number; text: string; destination: string }
+
+/**
+ * Parses a CommonMark inline link or image starting at `open` (the `[`): bracketed text with
+ * nesting and escapes, then `(destination "title")` where the destination is `<...>` or a run
+ * with balanced parentheses and backslash escapes. Returns null when it is not a link.
+ */
+function inlineLinkAt(text: string, open: number): InlineLink | null {
+  let i = open + 1, depth = 1
+  for (; i < text.length && i - open < 4000; i++) {
+    const c = text[i]
+    if (c === '\\') { i++; continue }
+    if (c === '[') depth++
+    else if (c === ']' && --depth === 0) break
+  }
+  if (depth !== 0 || text[i + 1] !== '(') return null
+  const label = text.slice(open + 1, i)
+  i += 2
+  while (text[i] === ' ' || text[i] === '\t' || text[i] === '\n') i++
+  const destStart = i
+  if (text[i] === '<') {
+    const close = text.indexOf('>', i)
+    if (close < 0 || /[\n<]/.test(text.slice(i + 1, close))) return null
+    i = close + 1
+  } else {
+    let parens = 0
+    for (; i < text.length; i++) {
+      const c = text[i]
+      if (c === '\\') { i++; continue }
+      if (c === ' ' || c === '\t' || c === '\n') break
+      if (c === '(') parens++
+      else if (c === ')') { if (parens === 0) break; parens-- }
+    }
+    if (parens !== 0) return null
+  }
+  const destination = text.slice(destStart, i)
+  while (text[i] === ' ' || text[i] === '\t' || text[i] === '\n') i++
+  const quote = text[i]
+  if (quote === '"' || quote === "'" || quote === '(') {
+    const closer = quote === '(' ? ')' : quote
+    for (i++; i < text.length; i++) {
+      if (text[i] === '\\') { i++; continue }
+      if (text[i] === closer) break
+    }
+    if (i >= text.length) return null
+    i++
+    while (text[i] === ' ' || text[i] === '\t' || text[i] === '\n') i++
+  }
+  if (text[i] !== ')') return null
+  return { end: i + 1, text: label, destination }
+}
+
+const refKey = (label: string) => label.replace(/\\(.)/g, '$1').trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 
 /**
  * Rewrites links so shared Markdown names only notes that are shared. `isShared(target)` says
  * whether a link target is a selected note; it must return false for unresolved targets.
- * - Embeds are removed: `![[...]]` and images with a local path.
- * - `[[Target|Alias]]` becomes `Alias`.
- * - `[[Target]]`, `[[Target#Heading]]` and `[text](Target.md)` keep their visible text (the
- *   label, or the target's note name without folders or heading) when the target is shared,
- *   and become `privateLabel` otherwise. A Markdown link label is often the target's title,
- *   so it is not kept for an unshared target. `obsidian:` and `file:` links become `privateLabel`.
- * Web links and images with a URL scheme are the author's own content and stay as written.
+ * - Embeds are removed: `![[...]]` and images or HTML media with a local path.
+ * - `[[Target|Alias]]` becomes `Alias` (links nested in the alias are rewritten too).
+ * - `[[Target]]`, `[[Target#Heading]]`, `[text](path)`, reference links and HTML `<a href>` keep
+ *   their visible text (the label, or the target's note name without folders or heading) when the
+ *   target is shared, and become `privateLabel` otherwise. A link label is often the target's
+ *   title, so it is not kept for an unshared target.
+ * - Only `http`, `https` and `mailto` destinations and `#anchors` stay as written; any other
+ *   scheme (`obsidian:`, `file:`, app links), in links or as bare text, becomes `privateLabel`.
+ * - `privatePaths` (vault paths of notes that are not shared) are replaced wherever they still
+ *   appear, as a last check.
  */
-export function redactLinks(markdown: string, isShared: (target: string) => boolean, privateLabel = PRIVATE_NOTE_LABEL): string {
-  return markdown
-    .replace(/(!?)\[\[([^[\]|\n]*)(?:\|((?:[^\]\n]|\](?!\]))*))?\]\]/g, (_match, embed: string, written: string, aliasText?: string) => {
-      if (embed) return ''
-      const alias = aliasText?.trim()
-      if (alias) return alias
-      const target = written.replace(/\\$/, '').trim()
-      // [[#Heading]] points inside the shared note itself.
-      if (!linkName(target).trim()) return target.slice(target.indexOf('#') + 1).trim() || privateLabel
-      return isShared(target) ? noteName(target) : privateLabel
+export function redactLinks(markdown: string, isShared: (target: string) => boolean, privateLabel = PRIVATE_NOTE_LABEL, privatePaths: string[] = []): string {
+  const visible = (text: string, path: string) => text.trim() || noteName(path)
+  const redactWikis = (text: string): string => replaceWikilinks(text, (inner, embed) => {
+    if (embed) return ''
+    const pipe = aliasPipe(inner)
+    const alias = pipe < 0 ? '' : redactWikis(inner.slice(pipe + 1)).replace(/\[\[|\]\]/g, '').trim()
+    if (alias) return alias
+    const target = (pipe < 0 ? inner : inner.slice(0, pipe)).replace(/\\$/, '').trim()
+    if (target.includes('[') || target.includes(']')) return privateLabel
+    // [[#Heading]] points inside the shared note itself.
+    if (!linkName(target).trim()) return target.slice(target.indexOf('#') + 1).trim() || privateLabel
+    return isShared(target) ? noteName(target) : privateLabel
+  })
+
+  let text = redactWikis(markdown)
+
+  // HTML links and media.
+  text = text.replace(/<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a\s*>/gi, (match, dq?: string, sq?: string, bare?: string, inner = '') => {
+    const dest = destinationOf(dq ?? sq ?? bare ?? '')
+    if (dest.kind === 'web' || dest.kind === 'anchor') return match
+    return dest.kind === 'local' && isShared(dest.path) ? visible(inner.replace(/<[^>]*>/g, ''), dest.path) : privateLabel
+  })
+  text = text.replace(/<(?:img|iframe|embed|video|audio|source|object|track)\b[^>]*>/gi, tag => {
+    const attrs = [...tag.matchAll(/\b(?:src|data|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)]
+    return attrs.every(a => ['web', 'anchor'].includes(destinationOf(a[1] ?? a[2] ?? a[3] ?? '').kind)) ? tag : ''
+  })
+  text = text.replace(/\b(href|src|data|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi, (match, name: string, dq?: string, sq?: string, bare?: string) =>
+    ['web', 'anchor'].includes(destinationOf(dq ?? sq ?? bare ?? '').kind) ? match : `${name}=""`)
+
+  // Inline links and images, scanned left to right.
+  let out = ''
+  for (let i = 0; i < text.length;) {
+    const open = text.indexOf('[', i)
+    if (open < 0) { out += text.slice(i); break }
+    const link = text[open - 1] === '\\' ? null : inlineLinkAt(text, open)
+    if (!link) { out += text.slice(i, open + 1); i = open + 1; continue }
+    const image = open > i && text[open - 1] === '!'
+    const dest = destinationOf(link.destination)
+    let replacement: string
+    if (dest.kind === 'web' || dest.kind === 'anchor') replacement = text.slice(image ? open - 1 : open, link.end)
+    else if (image) replacement = ''
+    else replacement = dest.kind === 'local' && isShared(dest.path) ? visible(link.text, dest.path) : privateLabel
+    out += text.slice(i, image ? open - 1 : open) + replacement
+    i = link.end
+  }
+  text = out
+
+  // Reference definitions and the links that use them.
+  const privateRefs = new Map<string, string | null>()
+  text = text.replace(/^ {0,3}\[((?:[^\]\\\n]|\\.)+)\]:[ \t]*\n?[ \t]*(<[^>\n]*>|\S+)[^\n]*(?:\n|$)/gm, (match, label: string, written: string) => {
+    const dest = destinationOf(written)
+    if (dest.kind === 'web' || dest.kind === 'anchor') return match
+    privateRefs.set(refKey(label), dest.kind === 'local' && isShared(dest.path) ? dest.path : null)
+    return ''
+  })
+  if (privateRefs.size) {
+    text = text.replace(/(!?)\[((?:[^\]\\\n]|\\.)*)\](?:\[((?:[^\]\\\n]|\\.)*)\])?(?![(:])/g, (match, image: string, label: string, ref?: string) => {
+      const key = refKey(ref ? ref : label)
+      if (!privateRefs.has(key)) return match
+      const path = privateRefs.get(key)
+      if (image) return ''
+      return path ? visible(label, path) : privateLabel
     })
-    .replace(/(!?)\[((?:[^[\]\n]|\[[^[\]\n]*\])*)\]\(\s*(<[^>\n]*>|(?:[^()\s]|\([^()\s]*\))*)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g, (match, embed: string, text: string, written: string) => {
-      const destination = written.replace(/^<([\s\S]*)>$/, '$1')
-      if (VAULT_URI.test(destination)) return embed ? '' : privateLabel
-      if (!destination || EXTERNAL.test(destination)) return match
-      if (embed) return ''
-      let path = destination.split(/[?#]/)[0]
-      try { path = decodeURIComponent(path) } catch { /* Keep the path as written. */ }
-      if (!/\.md$/i.test(path)) return match
-      return isShared(path) ? text.trim() || noteName(path) : privateLabel
-    })
+  }
+
+  // Autolinks and bare links with a scheme other than http, https or mailto.
+  text = text.replace(/<([a-z][a-z0-9+.-]*:[^\s<>]*)>/gi, (match, url: string) => destinationOf(url).kind === 'web' ? match : privateLabel)
+  text = text.replace(/(?<![\w/.+-])[a-z][a-z0-9+.-]*:\/\/[^\s<>()[\]"'`]*/gi, url => destinationOf(url).kind === 'web' ? url : privateLabel)
+  text = text.replace(/(?<![\w/.+-])(?:obsidian|file):[^\s<>()[\]"'`]+/gi, privateLabel)
+
+  // Last check: leftover wikilink brackets and any vault path of a note that is not shared.
+  text = text.replace(/\[\[|\]\]/g, '')
+  const paths = [...new Set(privatePaths.flatMap(p => { const bare = p.replace(/\.md$/i, ''); return [p, bare, encodeURI(p), encodeURI(bare)] }))]
+    .filter(p => p.length >= 3 && (p.includes('/') || /\.md$/i.test(p)))
+    .sort((a, b) => b.length - a.length)
+  for (const p of paths) text = text.split(p).join(privateLabel)
+  return text
 }
 
 /** A vault path for a relative link target written in `folder`; '' when it leaves the vault. */
@@ -68,14 +232,15 @@ function createSharer(notes: Note[], options: ShareOptions = {}): (note: Note) =
   const resolve = createLinkResolver(notes)
   const selected = new Set(notes.filter(n => n.visibility === 'public').map(n => n.id))
   const privateLabel = options.privateLabel ?? PRIVATE_NOTE_LABEL
+  const privatePaths = notes.filter(n => !selected.has(n.id)).map(n => n.path)
   return note => {
     const folder = note.path.split('/').slice(0, -1)
     const isShared = (target: string) => {
       const found = resolve(note, target) ?? resolve(note, vaultPath(folder, target))
       return Boolean(found && selected.has(found.id))
     }
-    const body = redactLinks(note.body, isShared, privateLabel)
-    return { title: redactLinks(note.title, isShared, privateLabel), body, summary: summarize(body), tags: explicitTags(note.original ?? '') }
+    const body = redactLinks(note.body, isShared, privateLabel, privatePaths)
+    return { title: redactLinks(note.title, isShared, privateLabel, privatePaths), body, summary: summarize(body), tags: explicitTags(note.original ?? '') }
   }
 }
 

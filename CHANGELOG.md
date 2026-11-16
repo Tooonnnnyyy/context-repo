@@ -16,6 +16,7 @@ Branch `fix/sharing-privacy`; to be tagged `v0.1.1-context-beta` on main's merge
 - IdeaMap draft links read `VITE_IDEAMAP_ORIGIN` (fallback `https://ideamap-nine.vercel.app`), keep `from=context-repo`, drop a first heading that repeats the title, and trim long bodies with a truncation notice so the full URL stays within 7,500 characters. Long notes are no longer rejected.
 - Private note excerpts show a link's alias instead of alias and target run together, and keep Markdown link text without its URL.
 - The sharing preview's projection is computed only while the preview is open, and repeated links between two selected notes are listed once.
+- Link redaction fails closed. Only `http`, `https`, `mailto` and `#anchor` destinations stay as written; any other scheme (`obsidian:`, `file:`, app links, protocol-relative) and any local path that is not a selected note becomes `[private note]`, in Markdown links, images, reference definitions and their uses, autolinks, bare URLs and HTML `href`/`src`. Wikilinks are matched with nested brackets (`[[a|[[Private]]]]`), Markdown destinations with escapes and balanced parentheses, and vault paths of unselected notes are replaced wherever they still appear.
 - Regression tests: `tests/sharing.test.ts`, `tests/graph-3d.test.ts`.
 
 ## 2026-11-14 — v0.1.0 · Context beta vertical slice
