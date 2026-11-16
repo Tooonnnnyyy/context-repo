@@ -11,31 +11,38 @@
     "check:privacy": "node scripts/check-privacy.mjs",
     "check": "npm run check:privacy && npm test && npm run build",
     "dev:full": "npm run build && wrangler dev --port 8795",
-    "deploy": "npm run check && wrangler deploy",
+    "deploy": "npm run deploy:preview",
     "db:local": "wrangler d1 migrations apply context-repo --local",
-    "db:remote": "wrangler d1 migrations apply context-repo --remote"
+    "db:remote": "wrangler d1 migrations apply context-repo --remote",
+    "deploy:preview": "npm run check && wrangler deploy --env preview",
+    "deploy:production": "node scripts/production-gate.mjs",
+    "db:preview": "wrangler d1 migrations apply context-repo-preview --env preview --remote"
   },
   "dependencies": {
-    "@noble/hashes": "^2.0.0",
-    "better-auth": "^1.4.0",
-    "drizzle-orm": "^0.44.0",
+    "@better-auth/drizzle-adapter": "1.7.22",
+    "@fontsource/dm-mono": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
+    "better-auth": "1.7.22",
+    "drizzle-orm": "^0.45.4",
     "fflate": "^0.8.2",
     "lucide-react": "^0.468.0",
     "markdown-it": "^14.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "yaml": "^2.8.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20261111.0",
+    "@cloudflare/workers-types": "^5.20261113.1",
     "@playwright/test": "^1.56.0",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.3.0",
+    "prettier": "^3.10.1",
     "tsx": "^4.20.0",
     "typescript": "~5.9.3",
-    "vite": "^6.4.0",
+    "vite": "^8.3.8",
     "wrangler": "^4.161.0"
   }
 }
