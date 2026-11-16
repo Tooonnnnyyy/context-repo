@@ -26,3 +26,9 @@ Keep product decisions and why they matter. Put session state in `HANDOFF.md`, d
 - The owner's word `handoff` is a durable stop-point request: consolidate the current evidence into `HANDOFF.md`, `CHANGELOG.md`, `docs/WORKLOG.md` and a private cross-repository handoff artifact when needed.
 - A handoff must include confirmed branch/commit/worktree state, completed behavior, exact validation commands and results, preview/deployment boundary, blockers, next executable commands and rollback point.
 - A handoff is not a transcript and must not contain credentials, private note bodies, personal filesystem paths, raw usage records or imported user data. Separate repository facts from proposals and unverified claims.
+
+## Sharing and merging — 2026-11-16
+
+- Shared text names only notes the owner selected. Links to anything else become `[private note]`, aliases are kept, embeds are removed, and excerpts are computed after redaction. Unresolved or ambiguous links count as unselected.
+- Exported tags are only tags the author wrote (frontmatter and inline). Folder names organize the private workspace and never leave it.
+- Merge commits on shared branches are made locally under the neutral identity and pushed. GitHub's merge button adds the merging account's name and a GitHub committer, which the all-ref identity check rejects.

@@ -2,7 +2,23 @@
 
 Versions describe delivered behavior. Planned work lives in `docs/ROADMAP.md`.
 
-## 2026-11-14 — Context beta vertical slice
+## Unreleased
+
+- Nothing yet.
+
+## 2026-11-16 — v0.1.1 · Sharing privacy fixes, 3D canvas, draft link cap
+
+Branch `fix/sharing-privacy`; to be tagged `v0.1.1-context-beta` on main's merge commit.
+
+- Shared text no longer names notes outside the selection. In the public projection (title, body, summary) and the IdeaMap draft, `[[Target|Alias]]` becomes `Alias`; `[[Target]]`, `[[Target#Heading]]` and local `[text](Target.md)` links keep the target's name only when it resolves to a selected note and otherwise become `[private note]` (configurable `privateLabel`), as do `obsidian:` and `file:` links. Embeds and local Markdown images are removed, unresolved and ambiguous links count as unselected, and summaries are computed after redaction.
+- Exported tags are only the author's explicit tags (frontmatter and inline `#tags`). Folder names no longer leave the workspace as tags; they remain topics inside the private UI.
+- The 3D graph now renders. It draws into its own canvas because the shared canvas already holds the 2D context. 2D and reduced-motion behavior are unchanged.
+- IdeaMap draft links read `VITE_IDEAMAP_ORIGIN` (fallback `https://ideamap-nine.vercel.app`), keep `from=context-repo`, drop a first heading that repeats the title, and trim long bodies with a truncation notice so the full URL stays within 7,500 characters. Long notes are no longer rejected.
+- Private note excerpts show a link's alias instead of alias and target run together, and keep Markdown link text without its URL.
+- The sharing preview's projection is computed only while the preview is open, and repeated links between two selected notes are listed once.
+- Regression tests: `tests/sharing.test.ts`, `tests/graph-3d.test.ts`.
+
+## 2026-11-14 — v0.1.0 · Context beta vertical slice
 
 - Shipped the browser-first Context beta on `feat/first-context-beta` (`c797c13`, tag `v0.1.0-context-beta`).
 - Added resumable onboarding, local Markdown/folder/ZIP import, source preservation, frontmatter/wikilink/tag parsing, note search, backlinks, privacy selection, public projection preview, private export, context-pack budgeting and 2D/optional 3D graph views.
@@ -10,7 +26,9 @@ Versions describe delivered behavior. Planned work lives in `docs/ROADMAP.md`.
 - Added privacy regression checks and release-gate documentation that keeps user content out of source control.
 - Recorded the repeatable `handoff` protocol in `HANDOFF.md` and `MEMORY.md`.
 
-## Unreleased
+## 2026-11-13 — v0.0.0 · Foundation
+
+Tag `v0.0.0-foundation` (`d225fa3`).
 
 - New generic context product; no personal knowledge, media or source Git history.
 - Durable product memory, agent operating rules and current handoff.
