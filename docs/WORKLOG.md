@@ -27,3 +27,9 @@
 - Validation: `npm run check` passed — privacy scan (50 files), 22/22 tests, TypeScript and Vite build. The new tests fail on the beta code. A local `vite preview` comparison in a WebGL2 browser showed the beta falling back to 2D and the fix rendering 3D, returning to 2D and rendering 3D again; the sharing preview showed redacted links and explicit tags.
 - Seen, not fixed: the 3D core label overlaps the "Learning" topic label; the preview reads "1 notes".
 - Next: owner approval for the pushes, PRs (merge commits under the neutral identity) and tag `v0.1.1-context-beta`; commands are in `HANDOFF.md`.
+
+## 2026-11-16 · v0.1.1 merged
+
+- With the owner's approval in the session that ran it: pushed `feat/first-context-beta` and tag `v0.1.0-context-beta`, merged PR #1 (beta) and PR #2 (v0.1.1) into `main` with local `--no-ff` merges under the neutral identity, tagged `v0.1.1-context-beta`.
+- Before merging, link redaction was made fail-closed after an automated security review found bypasses (any URL scheme treated as external; nested wikilink aliases; escaped or parenthesised destinations; reference and HTML links). 24/24 tests, privacy scan and build pass.
+- IdeaMap embeds a pinned copy of this code as its "My context" page; this repository stays canonical.

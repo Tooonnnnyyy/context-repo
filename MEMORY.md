@@ -17,6 +17,11 @@ Context helps anyone turn their own notes into a connected personal context base
 - User content never belongs in source control. Template export produces a separate private-ready context folder; publication remains a separate owner decision.
 - Public release is authorized for this generic product, not for any adjacent personal repository. Deployment, CI, source and browser evidence are separate.
 
+## Decision — 2026-11-16
+
+- IdeaMap embeds Context's importer, workspace, sharing transform and graph engine as its own "My context" page (owner's choice, IdeaMap ADR-0016). This repository stays canonical for that code and keeps its standalone app; IdeaMap copies tagged releases and must not fork the logic.
+- Shared-text redaction fails closed: only `http`, `https`, `mailto` and `#anchor` destinations are kept as written.
+
 ## Record decisions here
 
 Keep product decisions and why they matter. Put session state in `HANDOFF.md`, delivered changes in `CHANGELOG.md`, future work in `docs/ROADMAP.md`, and dated execution evidence in `docs/WORKLOG.md`.
