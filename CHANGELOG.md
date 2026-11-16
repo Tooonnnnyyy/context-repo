@@ -6,6 +6,16 @@ Versions describe delivered behavior. Planned work lives in `docs/ROADMAP.md`.
 
 - Nothing yet.
 
+## 2026-11-16 — v0.1.2 · Link redaction hardening
+
+- An escaped bracket counts only after an odd run of backslashes, so `\\[text](path)` (a literal backslash, then a link) is redacted.
+- Link reference definitions inside blockquotes and list items are found and redacted with their uses.
+- Labels of kept links (web links, images, shared notes) are redacted too, so a private link nested in a web link's label no longer survives.
+- `srcset` is checked candidate by candidate; one private image path removes the tag.
+- An `<a href>` to a private target that never closes is replaced up to the end of its line.
+- An unclosed `[[` stays as text instead of being dropped, so nested Markdown links keep their structure.
+- Regression tests for each case (25/25), and a 20,000-case random fuzz run outside the repository found no private name or path in shared output.
+
 ## 2026-11-16 — v0.1.1 · Sharing privacy fixes, 3D canvas, draft link cap
 
 Branch `fix/sharing-privacy`; to be tagged `v0.1.1-context-beta` on main's merge commit.

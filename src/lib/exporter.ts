@@ -43,8 +43,8 @@ function replaceWikilinks(text: string, render: (inner: string, embed: boolean) 
     }
     const embed = start > at && text[start - 1] === '!'
     if (end < 0) {
-      // An unclosed `[[` is not a link; keep the text and drop the brackets.
-      out += text.slice(at, start)
+      // An unclosed `[[` is not a wikilink (it may open a nested Markdown link); keep it as text.
+      out += text.slice(at, start + 2)
       at = start + 2
       continue
     }
@@ -65,7 +65,7 @@ function aliasPipe(inner: string): number {
   return -1
 }
 
-type InlineLink = { end: number; text: string; destination: string }
+type InlineLink = { end: number; labelEnd: number; text: string; destination: string }
 
 /**
  * Parses a CommonMark inline link or image starting at `open` (the `[`): bracketed text with
@@ -114,8 +114,20 @@ function inlineLinkAt(text: string, open: number): InlineLink | null {
     while (text[i] === ' ' || text[i] === '\t' || text[i] === '\n') i++
   }
   if (text[i] !== ')') return null
-  return { end: i + 1, text: label, destination }
+  return { end: i + 1, labelEnd: open + 1 + label.length, text: label, destination }
 }
+
+/** True when the character at `at` is escaped by an odd run of backslashes. */
+const escapedAt = (text: string, at: number) => {
+  let count = 0
+  while (at - 1 - count >= 0 && text[at - 1 - count] === '\\') count++
+  return count % 2 === 1
+}
+
+/** Every URL in an attribute value; `srcset` lists candidates separated by commas. */
+const attributeUrls = (name: string, value: string) =>
+  name.toLowerCase() === 'srcset' ? value.split(',').map(c => c.trim().split(/\s+/)[0]).filter(Boolean) : [value]
+const isOutside = (name: string, value: string) => attributeUrls(name, value).every(url => ['web', 'anchor'].includes(destinationOf(url).kind))
 
 const refKey = (label: string) => label.replace(/\\(.)/g, '$1').trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 
@@ -155,34 +167,41 @@ export function redactLinks(markdown: string, isShared: (target: string) => bool
     if (dest.kind === 'web' || dest.kind === 'anchor') return match
     return dest.kind === 'local' && isShared(dest.path) ? visible(inner.replace(/<[^>]*>/g, ''), dest.path) : privateLabel
   })
-  text = text.replace(/<(?:img|iframe|embed|video|audio|source|object|track)\b[^>]*>/gi, tag => {
-    const attrs = [...tag.matchAll(/\b(?:src|data|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)]
-    return attrs.every(a => ['web', 'anchor'].includes(destinationOf(a[1] ?? a[2] ?? a[3] ?? '').kind)) ? tag : ''
+  // An <a> whose href is private and that never closes: its text runs to the end of the line.
+  text = text.replace(/<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>[^\n]*/gi, (match, dq?: string, sq?: string, bare?: string) =>
+    isOutside('href', dq ?? sq ?? bare ?? '') ? match : privateLabel)
+  text = text.replace(/<(?:img|iframe|embed|video|audio|source|object|track|picture)\b[^>]*>/gi, tag => {
+    const attrs = [...tag.matchAll(/\b(src|data|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)]
+    return attrs.every(a => isOutside(a[1], a[2] ?? a[3] ?? a[4] ?? '')) ? tag : ''
   })
   text = text.replace(/\b(href|src|data|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi, (match, name: string, dq?: string, sq?: string, bare?: string) =>
-    ['web', 'anchor'].includes(destinationOf(dq ?? sq ?? bare ?? '').kind) ? match : `${name}=""`)
+    isOutside(name, dq ?? sq ?? bare ?? '') ? match : `${name}=""`)
 
-  // Inline links and images, scanned left to right.
-  let out = ''
-  for (let i = 0; i < text.length;) {
-    const open = text.indexOf('[', i)
-    if (open < 0) { out += text.slice(i); break }
-    const link = text[open - 1] === '\\' ? null : inlineLinkAt(text, open)
-    if (!link) { out += text.slice(i, open + 1); i = open + 1; continue }
-    const image = open > i && text[open - 1] === '!'
-    const dest = destinationOf(link.destination)
-    let replacement: string
-    if (dest.kind === 'web' || dest.kind === 'anchor') replacement = text.slice(image ? open - 1 : open, link.end)
-    else if (image) replacement = ''
-    else replacement = dest.kind === 'local' && isShared(dest.path) ? visible(link.text, dest.path) : privateLabel
-    out += text.slice(i, image ? open - 1 : open) + replacement
-    i = link.end
+  // Inline links and images, scanned left to right; labels that are kept are redacted too.
+  const redactInline = (source: string, depth = 0): string => {
+    let out = ''
+    for (let i = 0; i < source.length;) {
+      const open = source.indexOf('[', i)
+      if (open < 0) { out += source.slice(i); break }
+      const link = escapedAt(source, open) ? null : inlineLinkAt(source, open)
+      if (!link) { out += source.slice(i, open + 1); i = open + 1; continue }
+      const image = open > i && source[open - 1] === '!' && !escapedAt(source, open - 1)
+      const dest = destinationOf(link.destination)
+      const label = depth < 8 ? redactInline(link.text, depth + 1) : privateLabel
+      let replacement: string
+      if (dest.kind === 'web' || dest.kind === 'anchor') replacement = `${image ? '!' : ''}[${label}${source.slice(link.labelEnd, link.end)}`
+      else if (image) replacement = ''
+      else replacement = dest.kind === 'local' && isShared(dest.path) ? visible(label, dest.path) : privateLabel
+      out += source.slice(i, image ? open - 1 : open) + replacement
+      i = link.end
+    }
+    return out
   }
-  text = out
+  text = redactInline(text)
 
   // Reference definitions and the links that use them.
   const privateRefs = new Map<string, string | null>()
-  text = text.replace(/^ {0,3}\[((?:[^\]\\\n]|\\.)+)\]:[ \t]*\n?[ \t]*(<[^>\n]*>|\S+)[^\n]*(?:\n|$)/gm, (match, label: string, written: string) => {
+  text = text.replace(/^[ \t]*(?:(?:>|[-*+]|\d{1,9}[.)])[ \t]*)*\[((?:[^\]\\\n]|\\.)+)\]:[ \t]*\n?[ \t>]*(<[^>\n]*>|\S+)[^\n]*(?:\n|$)/gm, (match, label: string, written: string) => {
     const dest = destinationOf(written)
     if (dest.kind === 'web' || dest.kind === 'anchor') return match
     privateRefs.set(refKey(label), dest.kind === 'local' && isShared(dest.path) ? dest.path : null)
@@ -203,8 +222,7 @@ export function redactLinks(markdown: string, isShared: (target: string) => bool
   text = text.replace(/(?<![\w/.+-])[a-z][a-z0-9+.-]*:\/\/[^\s<>()[\]"'`]*/gi, url => destinationOf(url).kind === 'web' ? url : privateLabel)
   text = text.replace(/(?<![\w/.+-])(?:obsidian|file):[^\s<>()[\]"'`]+/gi, privateLabel)
 
-  // Last check: leftover wikilink brackets and any vault path of a note that is not shared.
-  text = text.replace(/\[\[|\]\]/g, '')
+  // Last check: any vault path of a note that is not shared, wherever it still appears.
   const paths = [...new Set(privatePaths.flatMap(p => { const bare = p.replace(/\.md$/i, ''); return [p, bare, encodeURI(p), encodeURI(bare)] }))]
     .filter(p => p.length >= 3 && (p.includes('/') || /\.md$/i.test(p)))
     .sort((a, b) => b.length - a.length)
