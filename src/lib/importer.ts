@@ -7,9 +7,8 @@ export const LIMITS = { files: 1000, fileBytes: 1024 * 1024, totalBytes: 20 * 10
 const encoder = new TextEncoder()
 const excluded = (path: string) => path.split('/').some(part => part.startsWith('.') || part === '__MACOSX' || part === 'node_modules')
 
-export function parseNote(input: string, rawPath: string, source: Note['source'] = 'obsidian'): Note {
-  const path = normalizePath(rawPath)
-  if (encoder.encode(input).length > LIMITS.fileBytes) throw new Error('A note exceeds the 1 MB limit.')
+/** Splits YAML frontmatter from the body. Malformed frontmatter stays in the body, so no source text is lost. */
+function splitFrontmatter(input: string): { fields: Record<string, unknown>; body: string } {
   let fields: Record<string, unknown> = {}, body = input.replace(/^\uFEFF/, '')
   const front = body.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)
   if (front) {
@@ -19,19 +18,56 @@ export function parseNote(input: string, rawPath: string, source: Note['source']
       body = body.slice(front[0].length)
     } catch { /* Keep malformed frontmatter visible; never discard source text. */ }
   }
+  return { fields, body }
+}
+
+/** Markdown without fenced or inline code: code is not prose, so it carries no tags or links. */
+const proseOf = (body: string) => body.replace(/^```[\s\S]*?^```/gm, '').replace(/^~~~[\s\S]*?^~~~/gm, '').replace(/`[^`]+`/g, '')
+
+function tagsFrom(fields: Record<string, unknown>, prose: string): string[] {
+  const frontTags = Array.isArray(fields.tags) ? fields.tags.filter((v): v is string => typeof v === 'string') : typeof fields.tags === 'string' ? fields.tags.split(/[,\s]+/) : []
+  const inline = [...prose.matchAll(/(?:^|\s)#([\p{L}\p{N}_/-]+)/gu)].map(m => m[1])
+  return [...new Set([...frontTags, ...inline].map(t => t.replace(/^#/, '').trim()).filter(Boolean))].slice(0, 12)
+}
+
+/**
+ * The tags an author wrote in a note's original Markdown: frontmatter `tags` plus inline #tags.
+ * Never a folder name. These are the only tags that may leave the private workspace.
+ */
+export function explicitTags(markdown: string): string[] {
+  const { fields, body } = splitFrontmatter(markdown)
+  return tagsFrom(fields, proseOf(body))
+}
+
+/** A short plain-text excerpt of Markdown: no code, images, embeds, headings or link syntax. */
+export function summarize(markdown: string, length = 180): string {
+  const plain = proseOf(markdown)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/!\[\[[^\]]*\]\]/g, '')
+    .replace(/^#+\s+.*$/gm, '')
+    .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, target: string, alias?: string) => alias || target.replace(/#.*$/, '') || target.slice(1))
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\[[ xX]\](?=\s)/g, '')
+    .replace(/[*_>#`]/g, '')
+    .replace(/\s+/g, ' ').trim()
+  return Array.from(plain).slice(0, length).join('') || 'A note in your context base.'
+}
+
+export function parseNote(input: string, rawPath: string, source: Note['source'] = 'obsidian'): Note {
+  const path = normalizePath(rawPath)
+  if (encoder.encode(input).length > LIMITS.fileBytes) throw new Error('A note exceeds the 1 MB limit.')
+  const { fields, body } = splitFrontmatter(input)
   const filename = path.split('/').at(-1)!.replace(/\.md$/i, '')
   const title = (typeof fields.title === 'string' ? fields.title : body.match(/^#\s+(.+)$/m)?.[1] || filename).slice(0, 160)
-  const frontTags = Array.isArray(fields.tags) ? fields.tags.filter((v): v is string => typeof v === 'string') : typeof fields.tags === 'string' ? fields.tags.split(/[,\s]+/) : []
-  const prose = body.replace(/^```[\s\S]*?^```/gm, '').replace(/^~~~[\s\S]*?^~~~/gm, '').replace(/`[^`]+`/g, '')
-  const inline = [...prose.matchAll(/(?:^|\s)#([\p{L}\p{N}_/-]+)/gu)].map(m => m[1])
+  const prose = proseOf(body)
   const folder = path.split('/').slice(0, -1).at(-1)
-  const tags = [...new Set([...frontTags, ...inline].map(t => t.replace(/^#/, '').trim()).filter(Boolean))].slice(0, 12)
+  const tags = tagsFrom(fields, prose)
+  // A folder name is a private organizing topic inside this workspace only; exports use explicitTags().
   if (!tags.length && folder) tags.push(folder)
   const links = [...new Set([...prose.matchAll(/(?<!!)\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)].map(m => m[1].trim()))].slice(0, 100)
-  const plain = prose.replace(/!\[.*?\]\(.*?\)/g, '').replace(/^#+\s+.*$/gm, '').replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, '$2$1').replace(/[*_>#`\[\]]/g, '').replace(/\s+/g, ' ').trim()
   return {
     id: noteId(path), path, title, body, original: input,
-    summary: plain.slice(0, 180) || 'A note in your context base.', tags, links,
+    summary: summarize(body), tags, links,
     tier: fields.tier === '3A' || fields.tier === '2A' ? fields.tier : '1A',
     kind: fields.type === 'project' ? 'project' : fields.type === 'blog' ? 'blog' : 'note',
     visibility: 'private', source,
