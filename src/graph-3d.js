@@ -26,11 +26,15 @@ function withVertexOpacity(material, roundPoints = false) {
 }
 
 export class KnowledgeGraph3D {
-  constructor({ stage, canvas, layer, nodes, edges, regions = [], onSelect, onViewChange, onBackgroundClick, onFallback, onRegionSelect }) {
+  // `canvas` (the 2D view's surface) is accepted for a shared options object but never drawn
+  // into: a canvas keeps the first kind of context it hands out, so once the 2D view has used
+  // it, WebGL cannot. The 3D view renders into a canvas of its own and removes it on destroy.
+  constructor({ stage, layer, nodes, edges, regions = [], onSelect, onViewChange, onBackgroundClick, onFallback, onRegionSelect }) {
     this.mode = '3d'
     this.is3D = true
     this.stage = stage
-    this.canvas = canvas
+    this.canvas = document.createElement('canvas')
+    this.canvas.setAttribute('aria-hidden', 'true')
     this.layer = layer
     this.onSelect = onSelect
     this.onViewChange = onViewChange
@@ -99,7 +103,9 @@ export class KnowledgeGraph3D {
     this.scene.add(light)
     this.meshes = new Map()
     try {
-      this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' })
+      // Below the node layer, so the HTML node buttons stay on top.
+      stage.insertBefore(this.canvas, layer.parentNode === stage ? layer : stage.firstChild)
+      this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: true, powerPreference: 'low-power' })
       this.renderer.setClearColor(0x000000, 0)
       this.renderer.outputColorSpace = THREE.SRGBColorSpace
       this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2))
@@ -853,6 +859,7 @@ export class KnowledgeGraph3D {
     for (const mesh of this.meshes.values()) mesh.material.dispose()
     this.renderer?.dispose()
     this.renderer?.forceContextLoss()
+    this.canvas.remove()
     this.elements.clear()
     this.layer.replaceChildren()
   }
