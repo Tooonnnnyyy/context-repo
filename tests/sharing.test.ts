@@ -71,6 +71,28 @@ test('nested, escaped, reference, HTML and bare links cannot carry a private nam
   assert.ok(body.startsWith('Nested: [private note], Seed swap, [private note], [private note], [private note].'), body)
 })
 
+test('escapes, quoted or listed definitions, nested labels, srcset and unclosed anchors stay redacted', () => {
+  const text = [
+    'Backslashes: \\\\[two](../Private/Budget%20worries.md) and \\[escaped](../Private/Budget%20worries.md).',
+    '> [quoted ref][q]',
+    '> [q]: ../Private/Budget%20worries.md',
+    '- [listed ref][l]',
+    '- [l]: ../Private/Budget%20worries.md',
+    '1. [n]: ../Private/Budget%20worries.md',
+    '[numbered][n]',
+    'Nested: [[inner](../Private/Budget%20worries.md)](https://example.org/ok) ![[alt](../Private/Budget%20worries.md)](https://example.org/i.png)',
+    '<img srcset="https://example.org/a.png 1x, ../Private/Budget.png 2x"> <source srcset=\'https://example.org/b.png, ../Private/Budget-b.png 2x\'>',
+    'Unclosed: <a href="../Private/Budget%20worries.md">Budget worries and the rest of this line',
+    'After.',
+  ].join('\n')
+  const note = selected(parseNote(text, 'Plans/Escapes.md'))
+  const body = publicProjection([note, swap, secret]).notes[0].body
+  assert.ok(!body.includes('Budget') && !body.includes('Private/'), body)
+  assert.ok(body.includes('[[private note]](https://example.org/ok)'), body)
+  assert.ok(body.includes('\\[escaped]'), 'an escaped bracket is text, and its parenthesis part is redacted as a path')
+  assert.ok(body.endsWith('After.'), body)
+})
+
 test('web, mail and anchor links stay as written; shared links keep their text', () => {
   const note = selected(parseNote('[site](https://example.org/a_(b)) <https://example.org/x> https://example.org/y [mail](mailto:hi@example.org) [top](#top) <a href="https://example.org/z">z</a> [s](<Seed swap.md>) [t][s]\n\n[s]: Seed%20swap.md', 'Plans/Web.md'))
   const body = publicProjection([note, swap]).notes[0].body

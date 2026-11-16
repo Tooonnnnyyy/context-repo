@@ -33,3 +33,8 @@
 - With the owner's approval in the session that ran it: pushed `feat/first-context-beta` and tag `v0.1.0-context-beta`, merged PR #1 (beta) and PR #2 (v0.1.1) into `main` with local `--no-ff` merges under the neutral identity, tagged `v0.1.1-context-beta`.
 - Before merging, link redaction was made fail-closed after an automated security review found bypasses (any URL scheme treated as external; nested wikilink aliases; escaped or parenthesised destinations; reference and HTML links). 24/24 tests, privacy scan and build pass.
 - IdeaMap embeds a pinned copy of this code as its "My context" page; this repository stays canonical.
+
+## 2026-11-16 · v0.1.2 link redaction hardening
+
+- A second automated security review found five more ways around v0.1.1's redaction (escaped brackets, quoted or listed reference definitions, nested labels in kept links, multi-candidate `srcset`, unclosed `<a href>`). Each is fixed with a regression test (25/25); a 20,000-case random fuzz run found no leak. Merged as PR #3, tagged `v0.1.2-context-beta`.
+- The same review flagged the undeployed Worker's request-size cap and account linking; recorded under Open issues in HANDOFF.md.

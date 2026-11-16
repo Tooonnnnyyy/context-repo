@@ -4,9 +4,9 @@ Updated: 2026-11-16. Read `AGENTS.md` first. This file is current state, not a t
 
 ## State
 
-- `main` on GitHub holds the beta and v0.1.1: PR #1 (beta vertical slice, merge `a68fa01`) and PR #2 (sharing fixes, merge commit tagged `v0.1.1-context-beta`). Both were merged locally with `--no-ff` under the neutral identity, so GitHub shows them as merged without GitHub-made commits.
-- Tags on GitHub: `v0.0.0-foundation` (`d225fa3`), `v0.1.0-context-beta` (`c797c13`), `v0.1.1-context-beta` (PR #2's merge commit).
-- IdeaMap now embeds a pinned copy of the importer, workspace, sharing and graph code from `v0.1.1-context-beta` as its "My context" page (IdeaMap's ADR-0016). This repository stays canonical for that code: fix bugs here first, then IdeaMap re-copies a tagged release.
+- `main` on GitHub holds the beta and v0.1.1: PR #1 (beta vertical slice, merge `a68fa01`) and PR #2 (sharing fixes, merge commit tagged `v0.1.1-context-beta`) and PR #3 (link redaction hardening, tagged `v0.1.2-context-beta`). Both were merged locally with `--no-ff` under the neutral identity, so GitHub shows them as merged without GitHub-made commits.
+- Tags on GitHub: `v0.0.0-foundation` (`d225fa3`), `v0.1.0-context-beta` (`c797c13`), `v0.1.1-context-beta` (PR #2's merge commit), `v0.1.2-context-beta` (PR #3's merge commit).
+- IdeaMap now embeds a pinned copy of the importer, workspace, sharing and graph code from `v0.1.2-context-beta` as its "My context" page (IdeaMap's ADR-0016). This repository stays canonical for that code: fix bugs here first, then IdeaMap re-copies a tagged release.
 - What v0.1.1 changes:
   - Shared text (public projection title, body and summary; IdeaMap draft) names only selected notes. `[[Target|Alias]]` becomes `Alias`. `[[Target]]`, `[[Target#Heading]]` and local `[text](Target.md)` links keep the target's name only when it resolves to a selected note; otherwise they become `[private note]` (the `privateLabel` option), as do `obsidian:` and `file:` links. Embeds and local Markdown images are removed. Summaries are computed after redaction. Unresolved and ambiguous links count as unselected.
   - Exported tags are only the author's explicit tags (frontmatter `tags` + inline `#tags`), read from the original Markdown. Folder-derived topics stay in the private workspace UI.
@@ -28,6 +28,7 @@ Updated: 2026-11-16. Read `AGENTS.md` first. This file is current state, not a t
 
 ## Open issues
 
+- Before any deployment of the Worker: (1) its 16 KB request cap trusts `Content-Length`, so a chunked body without that header is not capped; enforce the limit on the bytes actually read. (2) Email/password sign-up does not require email verification while Google sign-in can link an existing account by email, which allows account pre-hijacking; require verification, or disable implicit linking for unverified accounts. Both were flagged by an automated security review on 2026-11-16; the Worker is not deployed.
 - In the default 3D view the core label ("Example workspace") overlaps the "Learning" topic label. This is existing label-collision behavior, visible now that 3D renders; not fixed.
 - The sharing preview reads "1 notes" for a single note (pluralization); not fixed.
 - Shared text still keeps Obsidian `%% comments %%` as written, and a note with malformed frontmatter shares that frontmatter as body text. Plain-prose mentions of an unselected note's title (not a link, not a path) are the author's own words and are not redacted; the preview shows them. The context pack is a private artifact that includes every note and its path; it is not redacted.
