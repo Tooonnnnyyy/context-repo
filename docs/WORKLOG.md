@@ -16,3 +16,8 @@
 - Updated `HANDOFF.md`, `CHANGELOG.md` and `MEMORY.md` with the resumable handoff protocol and the next executable path.
 - Validation: `npm run check` passed — privacy scan, 10 tests, TypeScript build and Vite production build. This is local evidence only; no live deployment or production account behavior was claimed.
 - Next: owner review, then an explicitly approved release/preview decision; keep IdeaMap sync and personal product-line integrations in later milestones.
+
+### 2026-11-22 — security & polish (neutral identity)
+- Fixed Worker 16 KB cap to enforce on actual body bytes (chunked-body bypass closed); still not deployed.
+- Fixed sharing preview pluralization ("1 notes" → "1 note").
+- `npm run check` green: privacy 48 files, 10/10 tests, Vite build. No deployment.

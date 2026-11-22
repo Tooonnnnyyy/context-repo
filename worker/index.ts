@@ -39,7 +39,15 @@ export default {
     } else if (url.pathname.startsWith('/api/auth/')) {
       if (!env.DB || !env.BETTER_AUTH_SECRET) response = Response.json({ message: 'Accounts are not configured on this deployment. You can use a local workspace.' }, { status: 503 })
       else if (request.method !== 'GET' && request.headers.get('origin') !== origin) response = Response.json({ message: 'This request must come from this site.' }, { status: 403 })
-      else if (Number(request.headers.get('content-length') || 0) > 16384) response = Response.json({ message: 'Request is too large.' }, { status: 413 })
+      else if (request.method !== 'GET' && Number(request.headers.get('content-length') || 0) > 16384) response = Response.json({ message: 'Request is too large.' }, { status: 413 })
+      else if (request.method !== 'GET') {
+        // Enforce the cap on the bytes actually read: a chunked body omits Content-Length,
+        // so the header check above is only a fast path. Buffer once, re-check, then hand
+        // the same bytes to the auth handler.
+        const bytes = await request.arrayBuffer()
+        if (bytes.byteLength > 16384) response = Response.json({ message: 'Request is too large.' }, { status: 413 })
+        else response = await auth(env, origin).handler(new Request(request, { body: bytes.byteLength ? bytes : undefined }))
+      }
       else response = await auth(env, origin).handler(request)
     } else if (url.pathname.startsWith('/api/')) {
       response = Response.json({ message: 'Not found' }, { status: 404 })
