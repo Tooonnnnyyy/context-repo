@@ -21,3 +21,9 @@
 - Fixed Worker 16 KB cap to enforce on actual body bytes (chunked-body bypass closed); still not deployed.
 - Fixed sharing preview pluralization ("1 notes" → "1 note").
 - `npm run check` green: privacy 48 files, 10/10 tests, Vite build. No deployment.
+
+### 2026-11-22 — google auth + email verification (neutral identity)
+- account.accountLinking.requireLocalEmailVerified (fails closed): Google links only verified local emails.
+- Email verification opt-in via RESEND_API_KEY + EMAIL_FROM (Resend REST); sendOnSignUp; no key = current behavior.
+- Fixed two latent type errors in worker auth config (removed non-existent `scopes` and `autoSignInAfterVerification`).
+- `npm run check` green: privacy 48 files, 10/10 tests, build. Worker not deployed.
