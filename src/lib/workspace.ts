@@ -15,10 +15,21 @@ export function normalizePath(path: string): string {
   return clean.replace(/\/{2,}/g, '/').replace(/^\/+/, '')
 }
 
-export function resolveLinks(notes: Note[]) {
+/** The note part of a link target: no `#heading` / `#^block` suffix and no `.md` extension. */
+export function linkName(target: string): string {
+  return target.split('#')[0].replace(/\.md$/i, '')
+}
+
+/**
+ * Resolves a wikilink target written in `source` to exactly one note: a path relative to the
+ * source's folder first, then a vault path, title or file name. Missing or ambiguous targets
+ * resolve to null, and so does a bare `#heading` link (it names no other note).
+ */
+export function createLinkResolver(notes: Note[]): (source: Note, target: string) => Note | null {
   const byName = new Map<string, Note[]>()
+  const lookup = (name: string) => name.normalize('NFC').toLocaleLowerCase()
   const add = (name: string, note: Note) => {
-    const key = name.normalize('NFC').toLocaleLowerCase().replace(/\.md$/i, '')
+    const key = lookup(name).replace(/\.md$/i, '')
     const found = byName.get(key) || []
     if (!found.some(n => n.id === note.id)) byName.set(key, [...found, note])
   }
@@ -27,16 +38,25 @@ export function resolveLinks(notes: Note[]) {
     add(note.title, note)
     add(note.path.split('/').at(-1) || note.title, note)
   }
+  return (source, target) => {
+    const stripped = linkName(target)
+    if (!stripped) return null
+    const folder = source.path.split('/').slice(0, -1).join('/')
+    const relative = folder ? byName.get(lookup(`${folder}/${stripped}`)) : undefined
+    const found = relative?.length === 1 ? relative : byName.get(lookup(stripped))
+    return found?.length === 1 ? found[0] : null
+  }
+}
+
+export function resolveLinks(notes: Note[]) {
+  const resolve = createLinkResolver(notes)
   const resolved: { source: string; target: string }[] = []
   const missing: { note: string; target: string }[] = []
   for (const note of notes) for (const target of note.links) {
-    const stripped = target.split('#')[0].replace(/\.md$/i, '')
-    if (!stripped) continue
-    const folder = note.path.split('/').slice(0, -1).join('/')
-    const relative = folder ? byName.get(`${folder}/${stripped}`.toLocaleLowerCase()) : undefined
-    const found = relative?.length === 1 ? relative : byName.get(stripped.normalize('NFC').toLocaleLowerCase())
-    if (found?.length === 1 && found[0].id !== note.id) resolved.push({ source: note.id, target: found[0].id })
-    else if (!found || found.length > 1) missing.push({ note: note.id, target })
+    if (!linkName(target)) continue
+    const found = resolve(note, target)
+    if (!found) missing.push({ note: note.id, target })
+    else if (found.id !== note.id) resolved.push({ source: note.id, target: found.id })
   }
   return { resolved, missing }
 }

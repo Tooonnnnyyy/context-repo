@@ -13,6 +13,8 @@ npm run dev
 
 `npm run check` runs privacy checks, regression tests, TypeScript and a production build. `npm run dev:full` runs the production build with the authentication worker locally after applying the local database migrations.
 
+IdeaMap draft links open the public IdeaMap. To use another IdeaMap deployment, such as a preview, set `VITE_IDEAMAP_ORIGIN` when building.
+
 Read [the roadmap](docs/ROADMAP.md), [product memory](MEMORY.md), [current handoff](HANDOFF.md), [changelog](CHANGELOG.md), and [agent rules](AGENTS.md) before continuing work.
 
 Account and release instructions will be added as the first beta is verified. Code existence, local preview and deployed operation are different evidence boundaries.

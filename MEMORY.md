@@ -17,6 +17,11 @@ Context helps anyone turn their own notes into a connected personal context base
 - User content never belongs in source control. Template export produces a separate private-ready context folder; publication remains a separate owner decision.
 - Public release is authorized for this generic product, not for any adjacent personal repository. Deployment, CI, source and browser evidence are separate.
 
+## Decision — 2026-11-16
+
+- IdeaMap embeds Context's importer, workspace, sharing transform and graph engine as its own "My context" page (owner's choice, IdeaMap ADR-0016). This repository stays canonical for that code and keeps its standalone app; IdeaMap copies tagged releases and must not fork the logic.
+- Shared-text redaction fails closed: only `http`, `https`, `mailto` and `#anchor` destinations are kept as written.
+
 ## Record decisions here
 
 Keep product decisions and why they matter. Put session state in `HANDOFF.md`, delivered changes in `CHANGELOG.md`, future work in `docs/ROADMAP.md`, and dated execution evidence in `docs/WORKLOG.md`.
@@ -26,3 +31,9 @@ Keep product decisions and why they matter. Put session state in `HANDOFF.md`, d
 - The owner's word `handoff` is a durable stop-point request: consolidate the current evidence into `HANDOFF.md`, `CHANGELOG.md`, `docs/WORKLOG.md` and a private cross-repository handoff artifact when needed.
 - A handoff must include confirmed branch/commit/worktree state, completed behavior, exact validation commands and results, preview/deployment boundary, blockers, next executable commands and rollback point.
 - A handoff is not a transcript and must not contain credentials, private note bodies, personal filesystem paths, raw usage records or imported user data. Separate repository facts from proposals and unverified claims.
+
+## Sharing and merging — 2026-11-16
+
+- Shared text names only notes the owner selected. Links to anything else become `[private note]`, aliases are kept, embeds are removed, and excerpts are computed after redaction. Unresolved or ambiguous links count as unselected.
+- Exported tags are only tags the author wrote (frontmatter and inline). Folder names organize the private workspace and never leave it.
+- Merge commits on shared branches are made locally under the neutral identity and pushed. GitHub's merge button adds the merging account's name and a GitHub committer, which the all-ref identity check rejects.
