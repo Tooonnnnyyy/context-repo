@@ -44,3 +44,8 @@ Tag `v0.0.0-foundation` (`d225fa3`).
 - New generic context product; no personal knowledge, media or source Git history.
 - Durable product memory, agent operating rules and current handoff.
 - Audited 2D/3D layered graph rendering foundation.
+
+## 2026-11-22 — security & polish
+- Worker `/api/auth/*` request cap now measured on the bytes actually read, so a chunked body without `Content-Length` is also rejected over 16 KB (was header-trusting only).
+- Sharing preview pluralizes correctly ("1 note", "1 link").
+- Google authorization hardening + email verification (opt-in via RESEND_API_KEY): Google sign-in links to an existing account only when its email is verified (closes the pre-hijacking gap); password sign-up requires verification when Resend is configured.
