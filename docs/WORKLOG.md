@@ -38,3 +38,7 @@
 
 - A second automated security review found five more ways around v0.1.1's redaction (escaped brackets, quoted or listed reference definitions, nested labels in kept links, multi-candidate `srcset`, unclosed `<a href>`). Each is fixed with a regression test (25/25); a 20,000-case random fuzz run found no leak. Merged as PR #3, tagged `v0.1.2-context-beta`.
 - The same review flagged the undeployed Worker's request-size cap and account linking; recorded under Open issues in HANDOFF.md.
+
+### 2026-11-23 — security & auth round (PR #4 merged, neutral identity)
+- Merged PR #4 into main: worker 16 KB body cap (bytes-read), sharing pluralization, Google account-linking hardening (requireLocalEmailVerified), opt-in email verification (Resend).
+- `npm run check` green (50 source files, 25 tests, build). Worker still not deployed; email verification activates only after RESEND_API_KEY + EMAIL_FROM are set.

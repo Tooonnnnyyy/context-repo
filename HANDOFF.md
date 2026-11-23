@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-11-16. Read `AGENTS.md` first. This file is current state, not a transcript.
+Updated: 2026-11-23. Read `AGENTS.md` first. This file is current state, not a transcript.
 
 ## State
 
@@ -12,6 +12,7 @@ Updated: 2026-11-16. Read `AGENTS.md` first. This file is current state, not a t
   - Exported tags are only the author's explicit tags (frontmatter `tags` + inline `#tags`), read from the original Markdown. Folder-derived topics stay in the private workspace UI.
   - The 3D graph renders into its own canvas. The shared canvas already holds the 2D context, so WebGL never started there and 3D always fell back to 2D. 2D rendering and reduced-motion behavior are unchanged.
   - IdeaMap draft links use `VITE_IDEAMAP_ORIGIN` (fallback `https://ideamap-nine.vercel.app`), keep `from=context-repo`, drop a first `# Title` line that repeats the title, and cap the full encoded URL at 7,500 characters by trimming the body and appending a truncation notice.
+- PR #4 (security & polish, merged 2026-11-23): Worker `/api/auth/*` 16 KB cap now measured on the bytes actually read (chunked bodies without `Content-Length` are also rejected); sharing preview pluralizes "1 note / 1 link"; Google sign-in links to an existing account only when its email is verified (`account.accountLinking.requireLocalEmailVerified`, fails closed — closes the pre-hijacking gap); email verification is opt-in (when `RESEND_API_KEY` + `EMAIL_FROM` are set on the Worker, password sign-up requires verification and sends a Resend email).
 - No deployment, account service, cloud note sync or IdeaMap connection is claimed.
 
 ## Doing
