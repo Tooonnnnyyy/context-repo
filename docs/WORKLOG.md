@@ -42,3 +42,8 @@
 ### 2026-11-23 — security & auth round (PR #4 merged, neutral identity)
 - Merged PR #4 into main: worker 16 KB body cap (bytes-read), sharing pluralization, Google account-linking hardening (requireLocalEmailVerified), opt-in email verification (Resend).
 - `npm run check` green (50 source files, 25 tests, build). Worker still not deployed; email verification activates only after RESEND_API_KEY + EMAIL_FROM are set.
+
+### 2026-11-24 — identity check unblocked, CI added (branch `chore/identity-exception-ci`)
+- Found: `main` failed `npm run check` since 2026-11-23 because PR #4's merge commit `0aede4a` was made with GitHub's merge button (owner's GitHub identity + GitHub committer). It is the only non-neutral commit on any ref.
+- Change: exact-hash exception list (`scripts/identity-exceptions.json`, one entry with its reason); a CI workflow running `npm ci && npm run check` with `fetch-depth: 0`. No history rewrite, no force push, nothing deployed.
+- Checks: privacy check on the branch passes with "1 reviewed exception"; 25/25 tests; TypeScript + Vite build pass. Open: owner decides whether to accept the public merge commit or rewrite history; 3D label overlap still open.
