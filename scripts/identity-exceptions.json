@@ -1,0 +1,6 @@
+[
+  {
+    "commit": "0aede4aa1877b456b505b74df0ed9cc95f5db5d3",
+    "reason": "PR #4 was merged with GitHub's merge button on 2026-11-23, so its merge commit carries the owner's GitHub identity. It is already on the public main branch; removing it would need a history rewrite and force push, which this project does not do without an explicit owner decision. Only this exact commit is exempt; every other commit must still use the neutral identity."
+  }
+]

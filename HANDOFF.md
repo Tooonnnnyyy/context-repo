@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-11-23. Read `AGENTS.md` first. This file is current state, not a transcript.
+Updated: 2026-11-24. Read `AGENTS.md` first. This file is current state, not a transcript.
 
 ## State
 
@@ -23,18 +23,19 @@ Updated: 2026-11-23. Read `AGENTS.md` first. This file is current state, not a t
 ## Next
 
 1. Read `AGENTS.md`, `MEMORY.md`, this file, `docs/ROADMAP.md`, `CHANGELOG.md` and the latest `docs/WORKLOG.md` entry. Recheck `git status --short --branch`, `git log -5 --oneline` and `git ls-remote origin`.
-2. Merge PRs with a local `git merge --no-ff` under the neutral identity and push `main` (GitHub marks the PR merged). A GitHub-made merge commit carries the merging account's name and a GitHub committer, which `scripts/check-privacy.mjs` rejects for every later check.
+2. Merge PRs with a local `git merge --no-ff` under the neutral identity and push `main` (GitHub marks the PR merged). **Never use GitHub's merge button** (that is how `0aede4a` happened). A GitHub-made merge commit carries the merging account's name and a GitHub committer, which `scripts/check-privacy.mjs` rejects for every later check.
 3. When sharing or graph code changes here, tag a release and tell IdeaMap to re-copy it (IdeaMap ADR-0016).
 4. The smallest approved slice: account recovery/operational email, explicit local-vs-account copy, and release/deployment instructions. IdeaMap sync remains a later opt-in integration.
 
 ## Open issues
 
-- Before any deployment of the Worker: (1) its 16 KB request cap trusts `Content-Length`, so a chunked body without that header is not capped; enforce the limit on the bytes actually read. (2) Email/password sign-up does not require email verification while Google sign-in can link an existing account by email, which allows account pre-hijacking; require verification, or disable implicit linking for unverified accounts. Both were flagged by an automated security review on 2026-11-16; the Worker is not deployed.
-- In the default 3D view the core label ("Example workspace") overlaps the "Learning" topic label. This is existing label-collision behavior, visible now that 3D renders; not fixed.
-- The sharing preview reads "1 notes" for a single note (pluralization); not fixed.
+- **Public `main` holds one non-neutral merge commit.** PR #4 was merged with GitHub's merge button (`0aede4a`, 2026-11-23), so that commit carries the owner's GitHub identity and a GitHub committer. Since then `npm run check` failed on every checkout (the all-ref identity check). Branch `chore/identity-exception-ci` (PR) exempts exactly that one full hash, with its reason in `scripts/identity-exceptions.json`; every other commit must still be neutral. Removing the name from public history needs a history rewrite + force push: **owner decision only**, not done.
+- There was no CI. The same branch adds `.github/workflows/check.yml` (`npm ci && npm run check` with full history on PRs and pushes to `main`).
+- In the default 3D view the core label ("Example workspace") overlaps the "Learning" topic label. Existing label-collision behavior; not fixed.
 - Shared text still keeps Obsidian `%% comments %%` as written, and a note with malformed frontmatter shares that frontmatter as body text. Plain-prose mentions of an unselected note's title (not a link, not a path) are the author's own words and are not redacted; the preview shows them. The context pack is a private artifact that includes every note and its path; it is not redacted.
 - `ideaMapOrigin()` reads `import.meta.env` (Vite). Another bundler gets the public fallback unless it passes `origin`.
-- Account recovery, operational email and cloud note storage are not complete. No GitHub Issues or milestones exist yet for the workstreams.
+- Account recovery, operational email and cloud note storage are not complete. Email verification (PR #4) is code only: it activates when `RESEND_API_KEY` + `EMAIL_FROM` are set on a deployed Worker, and the Worker is not deployed. No GitHub Issues or milestones exist yet for the workstreams.
+- Fixed by PR #4 and removed from this list: the Worker 16 KB cap now counts bytes read; Google sign-in links only verified emails; the preview says "1 note".
 
 ## Evidence
 

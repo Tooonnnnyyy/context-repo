@@ -24,10 +24,18 @@ for (const file of new Set(files)) {
 }
 const walk = dir => { for (const name of readdirSync(dir)) { const p = join(dir, name); if (statSync(p).isDirectory()) walk(p); else inspect(p) } }
 if (existsSync('dist')) walk('dist')
-const metadata = execFileSync('git', ['log', '--all', '--format=%an|%ae|%cn|%ce'], { encoding: 'utf8' }).trim().split('\n')
+// Reviewed exceptions: exact full commit hashes only (see scripts/identity-exceptions.json for each reason).
+// Commits already on a public branch cannot be fixed without a history rewrite; everything else must be neutral.
+const exceptionFile = 'scripts/identity-exceptions.json'
+const exceptions = new Set(existsSync(exceptionFile) ? JSON.parse(readFileSync(exceptionFile, 'utf8')).map(entry => entry.commit).filter(hash => /^[0-9a-f]{40}$/.test(hash)) : [])
+let excepted = 0
+const metadata = execFileSync('git', ['log', '--all', '--format=%H|%an|%ae|%cn|%ce'], { encoding: 'utf8' }).trim().split('\n')
 for (const record of metadata) {
-  const [author, email, committer, commitEmail] = record.split('|')
-  if (author !== 'Context Contributors' || committer !== 'Context Contributors' || email !== 'contributors@users.noreply.github.com' || commitEmail !== email) problems.push('Git author/committer metadata outside neutral identity policy')
+  const [hash, author, email, committer, commitEmail] = record.split('|')
+  if (author !== 'Context Contributors' || committer !== 'Context Contributors' || email !== 'contributors@users.noreply.github.com' || commitEmail !== email) {
+    if (exceptions.has(hash)) excepted++
+    else problems.push('Git author/committer metadata outside neutral identity policy')
+  }
 }
 if (problems.length) { console.error([...new Set(problems)].join('\n')); process.exit(1) }
-console.log(`Privacy checks passed: ${new Set(files).size} source files, ${existsSync('dist') ? 'built assets' : 'no build yet'}, all-ref Git identities. No matched values printed.`)
+console.log(`Privacy checks passed: ${new Set(files).size} source files, ${existsSync('dist') ? 'built assets' : 'no build yet'}, all-ref Git identities${excepted ? ` (${excepted} reviewed exception${excepted === 1 ? '' : 's'})` : ''}. No matched values printed.`)

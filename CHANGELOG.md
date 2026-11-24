@@ -4,7 +4,8 @@ Versions describe delivered behavior. Planned work lives in `docs/ROADMAP.md`.
 
 ## Unreleased
 
-- Nothing yet.
+- `npm run check` passes again: the identity check exempts exactly one reviewed commit (`0aede4a`, PR #4's GitHub-button merge, already public) listed with its reason in `scripts/identity-exceptions.json`, and reports how many exceptions it used. Any other non-neutral commit still fails.
+- CI: `.github/workflows/check.yml` runs `npm ci && npm run check` with full Git history on pull requests and pushes to `main`.
 
 ## 2026-11-16 — v0.1.2 · Link redaction hardening
 

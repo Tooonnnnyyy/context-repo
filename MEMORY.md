@@ -37,3 +37,7 @@ Keep product decisions and why they matter. Put session state in `HANDOFF.md`, d
 - Shared text names only notes the owner selected. Links to anything else become `[private note]`, aliases are kept, embeds are removed, and excerpts are computed after redaction. Unresolved or ambiguous links count as unselected.
 - Exported tags are only tags the author wrote (frontmatter and inline). Folder names organize the private workspace and never leave it.
 - Merge commits on shared branches are made locally under the neutral identity and pushed. GitHub's merge button adds the merging account's name and a GitHub committer, which the all-ref identity check rejects.
+
+## Identity exceptions — 2026-11-24
+
+- A non-neutral commit that is already public is listed by its full hash, with a reason, in `scripts/identity-exceptions.json` instead of rewriting shared history. The list stays as short as possible; new commits never get an exception. Rewriting history to remove one is an owner-only decision.
